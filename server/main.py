@@ -10,7 +10,7 @@ import os
 from pathlib import Path
 
 app = FastAPI(
-    title="FastAPI YouTube Audio Downloader",
+    title="AudioTube API",
     description="A service to download YouTube videos as audio files in various formats",
     version="1.0.0",
 )
