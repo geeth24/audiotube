@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException, BackgroundTasks, Response
 from fastapi.responses import FileResponse
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, HttpUrl
 from typing import List, Optional, Dict
 import secrets
@@ -13,6 +14,21 @@ app = FastAPI(
     title="AudioTube API",
     description="A service to download YouTube videos as audio files in various formats",
     version="1.0.0",
+)
+
+# Configure CORS
+origins = [
+    "http://localhost",
+    "http://localhost:5173",
+    "https://audiotube.geethg.com",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Configure directories
