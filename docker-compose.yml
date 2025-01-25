@@ -1,0 +1,28 @@
+
+
+services:
+  yt-audio-service:
+    build: ./server
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./downloads:/app/downloads
+      - ./temp:/app/temp
+    environment:
+      - DOWNLOAD_DIR=/app/downloads
+      - TEMP_DIR=/app/temp
+      - URL_EXPIRY_HOURS=24
+      - BASE_URL=http://localhost:8000  # Change this in production
+      - MAX_DOWNLOADS=1000  # Optional: limit total stored downloads
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - yt-audio-network
+
+networks:
+  yt-audio-network:
+    driver: bridge

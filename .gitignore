@@ -1,0 +1,6 @@
+.venv
+__pycache__/
+server/.env
+server/celerybeat-schedule
+temp
+downloads
