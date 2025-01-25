@@ -204,7 +204,7 @@ async def download_video(video: VideoRequest, background_tasks: BackgroundTasks)
     info = get_video_info(str(video.url))
 
     # Get base URL for download link
-    base_url = "http://localhost:8000"  # Configure this based on your deployment
+    base_url = os.getenv("BASE_URL", "http://localhost:8000")
 
     # Start download in background
     response = download_audio(str(video.url), video.format, base_url)
