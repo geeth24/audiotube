@@ -234,3 +234,15 @@ async def list_downloads():
                 }
             )
     return {"downloads": files}
+
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint"""
+    return {"status": "ok"}
+
+
+@app.get("/")
+async def index():
+    """Index page"""
+    return {"message": "Welcome to AudioTube API"}
