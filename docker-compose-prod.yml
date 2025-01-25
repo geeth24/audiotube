@@ -4,7 +4,7 @@ services:
   yt-audio-service:
     build: ./server
     ports:
-      - "8000:8024"
+      - "8024:8000"
     volumes:
       - ./downloads:/app/downloads
       - ./temp:/app/temp
