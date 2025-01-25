@@ -12,7 +12,7 @@ services:
       - DOWNLOAD_DIR=/app/downloads
       - TEMP_DIR=/app/temp
       - URL_EXPIRY_HOURS=24
-      - BASE_URL=https:/audiotube-api.geethg.com  # Change this in production
+      - BASE_URL=https://audiotube-api.geethg.com  # Change this in production
       - MAX_DOWNLOADS=1000  # Optional: limit total stored downloads
     restart: unless-stopped
     healthcheck:
