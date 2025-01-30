@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useForm } from "react-hook-form"
+import { useForm, Controller } from "react-hook-form"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -20,16 +20,21 @@ export default function AudioDownloadForm() {
   const [formats, setFormats] = useState<string[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null)
-  const { register, handleSubmit } = useForm<FormData>()
+  const { control, register, handleSubmit } = useForm<FormData>({
+    defaultValues: {
+      format: "wav",
+    },
+  })
   const { toast } = useToast()
 
-  // Fetch available formats when component mounts
   useEffect(() => {
     fetch("https://audiotube-api.geethg.com/formats")
       .then((res) => res.json())
       .then((data) => setFormats(data.formats))
-      .catch((error) => toast({ title: "Error", description: `Failed to fetch formats ${error}`, variant: "destructive" }))
-  }, [])
+      .catch((error) =>
+        toast({ title: "Error", description: `Failed to fetch formats ${error}`, variant: "destructive" }),
+      )
+  }, [toast])
 
   const onSubmit = async (data: FormData) => {
     setIsLoading(true)
@@ -44,7 +49,6 @@ export default function AudioDownloadForm() {
         body: JSON.stringify(data),
       })
 
-      console.log(data)
       if (!response.ok) {
         throw new Error("Failed to process request")
       }
@@ -74,27 +78,30 @@ export default function AudioDownloadForm() {
       </div>
       <div>
         <Label htmlFor="format">Audio Format</Label>
-        <Select {...register("format")} defaultValue="wav"
-        onValueChange={(value) => {
-          register("format").onChange({ target: { value } });
-        }}>
-          <SelectTrigger>
-            <SelectValue placeholder="Select format" />
-          </SelectTrigger>
-          <SelectContent>
-            {formats.map((format) => (
-              <SelectItem key={format} value={format}>
-                {format}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <Controller
+          name="format"
+          control={control}
+          render={({ field }) => (
+            <Select onValueChange={field.onChange} defaultValue={field.value}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select format" />
+              </SelectTrigger>
+              <SelectContent>
+                {formats.map((format) => (
+                  <SelectItem key={format} value={format}>
+                    {format}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        />
       </div>
-    <div className="flex justify-end">
+      <div className="flex justify-end">
         <Button type="submit" disabled={isLoading}>
-        {isLoading ? <Loader2 className="animate-spin mr-2" /> : ""}
-        {isLoading ? "Processing..." : "Download Audio"}
-      </Button>
+          {isLoading ? <Loader2 className="animate-spin mr-2" /> : null}
+          {isLoading ? "Processing..." : "Download Audio"}
+        </Button>
       </div>
 
       {downloadUrl && (
