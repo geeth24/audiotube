@@ -4,7 +4,6 @@ export async function POST(request: Request) {
   const body = await request.json()
   const { url, format } = body
 
-  // Make sure to replace this with your actual API URL
   const apiUrl = "https://audiotube-api.geethg.com/download"
 
   try {

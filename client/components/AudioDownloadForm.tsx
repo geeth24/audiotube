@@ -44,6 +44,7 @@ export default function AudioDownloadForm() {
         body: JSON.stringify(data),
       })
 
+      console.log(data)
       if (!response.ok) {
         throw new Error("Failed to process request")
       }
@@ -73,7 +74,10 @@ export default function AudioDownloadForm() {
       </div>
       <div>
         <Label htmlFor="format">Audio Format</Label>
-        <Select {...register("format")} defaultValue="wav">
+        <Select {...register("format")} defaultValue="wav"
+        onValueChange={(value) => {
+          register("format").onChange({ target: { value } });
+        }}>
           <SelectTrigger>
             <SelectValue placeholder="Select format" />
           </SelectTrigger>
