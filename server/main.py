@@ -21,6 +21,10 @@ origins = [
     "http://localhost",
     "http://localhost:3000",
     "https://audiotube.geethg.com",
+    "https://audiotube.geeth.app",
+    "https://at.geeth.app",
+    "https://youtube.geeth.app",
+    "https://yt.geeth.app/*",
 ]
 
 app.add_middleware(

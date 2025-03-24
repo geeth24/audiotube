@@ -9,6 +9,9 @@ const config: Config = {
   ],
   theme: {
   	extend: {
+      fontFamily: {
+        sans: ['var(--font-roboto)', 'sans-serif'],
+      },
   		colors: {
   			background: 'hsl(var(--background))',
   			foreground: 'hsl(var(--foreground))',
@@ -55,7 +58,13 @@ const config: Config = {
   			lg: 'var(--radius)',
   			md: 'calc(var(--radius) - 2px)',
   			sm: 'calc(var(--radius) - 4px)'
-  		}
+  		},
+      boxShadow: {
+        'sm': '0 1px 2px rgba(0, 0, 0, 0.05)',
+        DEFAULT: '0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06)',
+        'md': '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+        'lg': '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+      }
   	}
   },
   plugins: [require("tailwindcss-animate")],
