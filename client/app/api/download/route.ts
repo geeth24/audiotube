@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server"
 
+// NOTE: This API route has been deprecated and replaced with a direct client-side call
+// to the audiotube API. See utils/api.ts for the replacement function.
+
 export async function POST(request: Request) {
   const body = await request.json()
   const { url, format } = body

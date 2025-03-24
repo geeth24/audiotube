@@ -10,6 +10,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { useToast } from "@/hooks/use-toast"
 import Link from "next/link"
 import { Download, Loader2, Link as LinkIcon } from "lucide-react"
+import { downloadAudio, getFormats } from "@/lib/api"
 
 type FormData = {
   url: string
@@ -40,11 +41,10 @@ export default function AudioDownloadForm({ initialUrl = '' }: AudioDownloadForm
   }, [initialUrl, setValue]);
 
   useEffect(() => {
-    fetch("https://audiotube-api.geethg.com/formats")
-      .then((res) => res.json())
-      .then((data) => setFormats(data.formats))
+    getFormats()
+      .then((formats) => setFormats(formats))
       .catch((error) =>
-        toast({ title: "Error", description: `Failed to fetch formats ${error}`, variant: "destructive" }),
+        toast({ title: "Error", description: `Failed to fetch formats: ${error}`, variant: "destructive" }),
       )
   }, [toast])
 
@@ -53,19 +53,11 @@ export default function AudioDownloadForm({ initialUrl = '' }: AudioDownloadForm
     setDownloadUrl(null)
 
     try {
-      const response = await fetch("/api/download", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(data),
+      const result = await downloadAudio({
+        url: data.url,
+        format: data.format
       })
-
-      if (!response.ok) {
-        throw new Error("Failed to process request")
-      }
-
-      const result = await response.json()
+      
       setDownloadUrl(result.download_url)
       toast({
         title: "Success",
