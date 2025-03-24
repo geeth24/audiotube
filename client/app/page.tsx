@@ -1,29 +1,38 @@
 "use client"
 
-import { useEffect, useState } from "react";
+import { Suspense, useState } from "react";
 import AudioDownloadForm from "@/components/AudioDownloadForm"
 import { ThemeToggle } from "@/components/ThemeToggle"
 import { useSearchParams } from "next/navigation"
 
-export default function Home() {
+function YouTubeUrlHandler({ onUrlFound }: { onUrlFound: (url: string) => void }) {
   const searchParams = useSearchParams();
-  const [youtubeUrl, setYoutubeUrl] = useState('');
   
-  // Use effect to decode URL to avoid hydration issues
-  useEffect(() => {
-    const encodedUrl = searchParams.get('url') || '';
-    if (encodedUrl) {
-      try {
-        setYoutubeUrl(decodeURIComponent(encodedUrl));
-      } catch (e) {
-        console.error("Error decoding URL:", e);
-        setYoutubeUrl(encodedUrl);
-      }
+  // Extract URL from search params
+  const encodedUrl = searchParams.get('url') || '';
+  if (encodedUrl) {
+    try {
+      onUrlFound(decodeURIComponent(encodedUrl));
+    } catch (e) {
+      console.error("Error decoding URL:", e);
+      onUrlFound(encodedUrl);
     }
-  }, [searchParams]);
+  }
+  
+  return null;
+}
+
+export default function Home() {
+  // Using useState without initial search params processing
+  const [youtubeUrl, setYoutubeUrl] = useState('');
   
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
+      {/* Wrap the component using useSearchParams in Suspense */}
+      <Suspense fallback={null}>
+        <YouTubeUrlHandler onUrlFound={setYoutubeUrl} />
+      </Suspense>
+      
       <header className="border-b border-border pb-5 mb-8">
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-2">
