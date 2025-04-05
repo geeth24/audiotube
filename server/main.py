@@ -103,10 +103,43 @@ AUDIO_FORMATS = {
     },
 }
 
+# Video format options
+VIDEO_FORMATS = {
+    "mp4": {
+        "format": "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
+        "merge_output_format": "mp4",
+    },
+    "webm": {
+        "format": "bestvideo[ext=webm]+bestaudio[ext=webm]/best[ext=webm]/best",
+        "merge_output_format": "webm",
+    },
+    "mkv": {
+        "format": "bestvideo+bestaudio/best",
+        "merge_output_format": "mkv",
+    },
+    "720p": {
+        "format": "bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720][ext=mp4]/best[height<=720]",
+        "merge_output_format": "mp4",
+    },
+    "480p": {
+        "format": "bestvideo[height<=480][ext=mp4]+bestaudio[ext=m4a]/best[height<=480][ext=mp4]/best[height<=480]",
+        "merge_output_format": "mp4",
+    },
+    "360p": {
+        "format": "bestvideo[height<=360][ext=mp4]+bestaudio[ext=m4a]/best[height<=360][ext=mp4]/best[height<=360]",
+        "merge_output_format": "mp4",
+    },
+}
+
 
 class VideoRequest(BaseModel):
     url: HttpUrl
     format: str = "mp3"
+
+
+class VideoDownloadRequest(BaseModel):
+    url: HttpUrl
+    format: str = "mp4"
 
 
 class DownloadResponse(BaseModel):
@@ -195,14 +228,70 @@ def download_audio(
         raise HTTPException(status_code=400, detail=f"Download failed: {str(e)}")
 
 
+def download_video(
+    url: str, format: str = "mp4", base_url: str = None
+) -> DownloadResponse:
+    """Download video from YouTube URL and create temporary download link"""
+    if format not in VIDEO_FORMATS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported format. Available formats: {', '.join(VIDEO_FORMATS.keys())}",
+        )
+
+    download_id = generate_download_id()
+
+    ydl_opts = {
+        **VIDEO_FORMATS[format],
+        "outtmpl": "%(title)s-video.%(ext)s",
+        "quiet": True,
+    }
+
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=True)
+            filename = ydl.prepare_filename(info)
+
+            # Update filename extension based on selected format
+            ext = VIDEO_FORMATS[format].get("merge_output_format", "mp4")
+            filepath = Path(filename).with_suffix(f".{ext}")
+
+            # Create temporary download entry
+            expires_at = datetime.now() + timedelta(hours=URL_EXPIRY_HOURS)
+            TEMP_DOWNLOADS[download_id] = {
+                "filepath": filepath,
+                "expires_at": expires_at,
+            }
+
+            # Clean up expired downloads
+            cleanup_expired_downloads()
+
+            return DownloadResponse(
+                download_id=download_id,
+                format=format,
+                title=info.get("title", ""),
+                duration=info.get("duration"),
+                status="completed",
+                download_url=f"{base_url}/download/{download_id}",
+                expires_at=expires_at,
+            )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Download failed: {str(e)}")
+
+
 @app.get("/formats")
 async def list_formats():
     """List all available audio formats"""
     return {"formats": list(AUDIO_FORMATS.keys()), "default": "mp3"}
 
 
+@app.get("/video-formats")
+async def list_video_formats():
+    """List all available video formats"""
+    return {"formats": list(VIDEO_FORMATS.keys()), "default": "mp4"}
+
+
 @app.post("/download", response_model=DownloadResponse)
-async def download_video(video: VideoRequest, background_tasks: BackgroundTasks):
+async def download_video_audio(video: VideoRequest, background_tasks: BackgroundTasks):
     """Download a YouTube video as audio and get temporary download URL"""
     # Verify video exists and is accessible
     info = get_video_info(str(video.url))
@@ -212,6 +301,22 @@ async def download_video(video: VideoRequest, background_tasks: BackgroundTasks)
 
     # Start download in background
     response = download_audio(str(video.url), video.format, base_url)
+    return response
+
+
+@app.post("/download-video", response_model=DownloadResponse)
+async def download_video_endpoint(
+    request: VideoDownloadRequest, background_tasks: BackgroundTasks
+):
+    """Download a YouTube video and get temporary download URL"""
+    # Verify video exists and is accessible
+    info = get_video_info(str(request.url))
+
+    # Get base URL for download link
+    base_url = os.getenv("BASE_URL", "http://localhost:8000")
+
+    # Start download in background
+    response = download_video(str(request.url), request.format, base_url)
     return response
 
 
