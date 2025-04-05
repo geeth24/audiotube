@@ -64,9 +64,26 @@ export default function VideoDownloadForm({ initialUrl = '' }: VideoDownloadForm
         description: "Your video is ready for download.",
       })
     } catch (error) {
+      const errorMessage = error instanceof Error 
+        ? error.message 
+        : "Unknown error occurred";
+        
+      console.error("Video download error:", errorMessage);
+      
+      let userMessage = "Failed to process your request. Please try again.";
+      
+      // Check for common error patterns and provide more helpful messages
+      if (errorMessage.includes("422")) {
+        userMessage = "The URL appears to be invalid. Please check it and try again.";
+      } else if (errorMessage.includes("404")) {
+        userMessage = "The video could not be found. Please check the URL and try again.";
+      } else if (errorMessage.includes("format")) {
+        userMessage = "This format is not supported for this video. Please try another format.";
+      }
+      
       toast({
         title: "Error",
-        description: `Failed to process your request. Please try again. ${error}`,
+        description: userMessage,
         variant: "destructive",
       })
     } finally {

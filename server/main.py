@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 import yt_dlp
 import os
 from pathlib import Path
+import re
 
 app = FastAPI(
     title="AudioTube API",
@@ -138,7 +139,7 @@ class VideoRequest(BaseModel):
 
 
 class VideoDownloadRequest(BaseModel):
-    url: HttpUrl
+    url: str
     format: str = "mp4"
 
 
@@ -278,6 +279,40 @@ def download_video(
         raise HTTPException(status_code=400, detail=f"Download failed: {str(e)}")
 
 
+def normalize_youtube_url(url: str) -> str:
+    """Normalize YouTube URLs to a standard format"""
+    # Handle youtu.be short links
+    youtu_be_pattern = r"youtu\.be/([a-zA-Z0-9_-]+)"
+    match = re.search(youtu_be_pattern, url)
+    if match:
+        video_id = match.group(1)
+        return f"https://www.youtube.com/watch?v={video_id}"
+
+    # Handle youtube.com/shorts
+    shorts_pattern = r"youtube\.com/shorts/([a-zA-Z0-9_-]+)"
+    match = re.search(shorts_pattern, url)
+    if match:
+        video_id = match.group(1)
+        return f"https://www.youtube.com/watch?v={video_id}"
+
+    # Handle youtube.com/v/ format
+    v_pattern = r"youtube\.com/v/([a-zA-Z0-9_-]+)"
+    match = re.search(v_pattern, url)
+    if match:
+        video_id = match.group(1)
+        return f"https://www.youtube.com/watch?v={video_id}"
+
+    # Handle youtube.com/embed/ format
+    embed_pattern = r"youtube\.com/embed/([a-zA-Z0-9_-]+)"
+    match = re.search(embed_pattern, url)
+    if match:
+        video_id = match.group(1)
+        return f"https://www.youtube.com/watch?v={video_id}"
+
+    # Already in standard format or not recognized
+    return url
+
+
 @app.get("/formats")
 async def list_formats():
     """List all available audio formats"""
@@ -293,14 +328,17 @@ async def list_video_formats():
 @app.post("/download", response_model=DownloadResponse)
 async def download_video_audio(video: VideoRequest, background_tasks: BackgroundTasks):
     """Download a YouTube video as audio and get temporary download URL"""
+    # Normalize the URL
+    normalized_url = normalize_youtube_url(str(video.url))
+
     # Verify video exists and is accessible
-    info = get_video_info(str(video.url))
+    info = get_video_info(normalized_url)
 
     # Get base URL for download link
     base_url = os.getenv("BASE_URL", "http://localhost:8000")
 
     # Start download in background
-    response = download_audio(str(video.url), video.format, base_url)
+    response = download_audio(normalized_url, video.format, base_url)
     return response
 
 
@@ -309,14 +347,17 @@ async def download_video_endpoint(
     request: VideoDownloadRequest, background_tasks: BackgroundTasks
 ):
     """Download a YouTube video and get temporary download URL"""
+    # Normalize the URL
+    normalized_url = normalize_youtube_url(str(request.url))
+
     # Verify video exists and is accessible
-    info = get_video_info(str(request.url))
+    info = get_video_info(normalized_url)
 
     # Get base URL for download link
     base_url = os.getenv("BASE_URL", "http://localhost:8000")
 
     # Start download in background
-    response = download_video(str(request.url), request.format, base_url)
+    response = download_video(normalized_url, request.format, base_url)
     return response
 
 

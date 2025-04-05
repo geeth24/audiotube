@@ -43,20 +43,30 @@ export async function downloadAudio({ url, format }: DownloadParams): Promise<Do
  */
 export async function downloadVideo({ url, format }: DownloadParams): Promise<DownloadResponse> {
   const apiUrl = "https://audiotube-api.geethg.com/download-video";
+  
+  const requestBody = { url, format };
+  console.log("Sending video download request:", requestBody);
 
-  const response = await fetch(apiUrl, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ url, format }),
-  });
+  try {
+    const response = await fetch(apiUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(requestBody),
+    });
 
-  if (!response.ok) {
-    throw new Error(`API request failed: ${response.statusText}`);
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("API error response:", response.status, errorText);
+      throw new Error(`API request failed: ${response.status} ${response.statusText} - ${errorText}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error("Video download error:", error);
+    throw error;
   }
-
-  return await response.json();
 }
 
 /**
