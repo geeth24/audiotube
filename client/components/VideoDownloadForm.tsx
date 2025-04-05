@@ -42,11 +42,15 @@ export default function VideoDownloadForm({ initialUrl = '' }: VideoDownloadForm
 
   useEffect(() => {
     getVideoFormats()
-      .then((formats) => setFormats(formats))
+      .then((formats) => {
+        setFormats(formats);
+        // Default to a safer format
+        setValue("format", "best");
+      })
       .catch((error) =>
         toast({ title: "Error", description: `Failed to fetch video formats: ${error}`, variant: "destructive" }),
       )
-  }, [toast])
+  }, [toast, setValue]);
 
   const onSubmit = async (data: FormData) => {
     setIsLoading(true)
@@ -79,6 +83,8 @@ export default function VideoDownloadForm({ initialUrl = '' }: VideoDownloadForm
         userMessage = "The video could not be found. Please check the URL and try again.";
       } else if (errorMessage.includes("format")) {
         userMessage = "This format is not supported for this video. Please try another format.";
+      } else if (errorMessage.includes("not available")) {
+        userMessage = "The selected format is not available for this video. Please try a different format (like mp4).";
       }
       
       toast({
@@ -126,13 +132,26 @@ export default function VideoDownloadForm({ initialUrl = '' }: VideoDownloadForm
               <SelectContent>
                 {formats.map((format) => (
                   <SelectItem key={format} value={format} className="text-sm">
-                    {format.toUpperCase()}
+                    {format === "mp4" ? "MP4 (Standard)" : 
+                     format === "best" ? "Best Quality" :
+                     format === "medium" ? "Medium Quality" : 
+                     format === "low" ? "Low Quality" : 
+                     format === "audio-only" ? "Audio Only" : 
+                     format.toUpperCase()}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           )}
         />
+        <div className="text-xs text-muted-foreground mt-1">
+          <p>Note: Not all formats are available for every video. If download fails, try "Best Quality" option.</p>
+          <ul className="mt-1 space-y-1 list-disc list-inside pl-1">
+            <li><span className="font-medium">Best Quality:</span> Highest available quality</li>
+            <li><span className="font-medium">Medium Quality:</span> ~480p (smaller file size)</li>
+            <li><span className="font-medium">Low Quality:</span> ~360p (fastest download)</li>
+          </ul>
+        </div>
       </div>
       
       <div className="pt-2">

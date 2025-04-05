@@ -110,25 +110,26 @@ VIDEO_FORMATS = {
         "format": "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
         "merge_output_format": "mp4",
     },
-    "webm": {
-        "format": "bestvideo[ext=webm]+bestaudio[ext=webm]/best[ext=webm]/best",
-        "merge_output_format": "webm",
-    },
-    "mkv": {
-        "format": "bestvideo+bestaudio/best",
-        "merge_output_format": "mkv",
-    },
-    "720p": {
-        "format": "bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720][ext=mp4]/best[height<=720]",
+    "best": {
+        "format": "best",
         "merge_output_format": "mp4",
     },
-    "480p": {
-        "format": "bestvideo[height<=480][ext=mp4]+bestaudio[ext=m4a]/best[height<=480][ext=mp4]/best[height<=480]",
+    "medium": {
+        "format": "18/best[height<=480]",  # Uses format 18 which is 480p MP4
         "merge_output_format": "mp4",
     },
-    "360p": {
-        "format": "bestvideo[height<=360][ext=mp4]+bestaudio[ext=m4a]/best[height<=360][ext=mp4]/best[height<=360]",
+    "low": {
+        "format": "17/best[height<=360]",  # Uses format 17 which is 360p MP4
         "merge_output_format": "mp4",
+    },
+    "audio-only": {
+        "format": "bestaudio/best",
+        "postprocessors": [
+            {
+                "key": "FFmpegExtractAudio",
+                "preferredcodec": "mp3",
+            }
+        ],
     },
 }
 
@@ -241,13 +242,18 @@ def download_video(
 
     download_id = generate_download_id()
 
-    ydl_opts = {
-        **VIDEO_FORMATS[format],
-        "outtmpl": "%(title)s-video.%(ext)s",
-        "quiet": True,
-    }
+    # First, get available formats for this video
+    with yt_dlp.YoutubeDL({"quiet": True}) as ydl:
+        info = ydl.extract_info(url, download=False)
 
+    # Try primary format
     try:
+        ydl_opts = {
+            **VIDEO_FORMATS[format],
+            "outtmpl": "%(title)s-video.%(ext)s",
+            "quiet": True,
+        }
+
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=True)
             filename = ydl.prepare_filename(info)
@@ -275,8 +281,49 @@ def download_video(
                 download_url=f"{base_url}/download/{download_id}",
                 expires_at=expires_at,
             )
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Download failed: {str(e)}")
+    except Exception as primary_error:
+        # If the specific format fails, try a more general/fallback format
+        try:
+            # Fallback to best available format
+            fallback_opts = {
+                "format": "best",
+                "merge_output_format": "mp4",
+                "outtmpl": "%(title)s-video-fallback.%(ext)s",
+                "quiet": True,
+            }
+
+            with yt_dlp.YoutubeDL(fallback_opts) as ydl:
+                info = ydl.extract_info(url, download=True)
+                filename = ydl.prepare_filename(info)
+
+                # Always use mp4 for fallback for better compatibility
+                filepath = Path(filename).with_suffix(".mp4")
+
+                # Create temporary download entry
+                expires_at = datetime.now() + timedelta(hours=URL_EXPIRY_HOURS)
+                TEMP_DOWNLOADS[download_id] = {
+                    "filepath": filepath,
+                    "expires_at": expires_at,
+                }
+
+                # Clean up expired downloads
+                cleanup_expired_downloads()
+
+                return DownloadResponse(
+                    download_id=download_id,
+                    format="mp4",  # Using mp4 as fallback format
+                    title=info.get("title", "") + " (Fallback format used)",
+                    duration=info.get("duration"),
+                    status="completed",
+                    download_url=f"{base_url}/download/{download_id}",
+                    expires_at=expires_at,
+                )
+        except Exception as fallback_error:
+            # If even the fallback fails, raise the original error
+            raise HTTPException(
+                status_code=400,
+                detail=f"Download failed: {str(primary_error)}. Fallback also failed: {str(fallback_error)}",
+            )
 
 
 def normalize_youtube_url(url: str) -> str:
