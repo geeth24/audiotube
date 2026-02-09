@@ -1,100 +1,225 @@
 "use client"
 
-import { Suspense, useState } from "react";
-import AudioDownloadForm from "@/components/AudioDownloadForm"
-import VideoDownloadForm from "@/components/VideoDownloadForm"
-import { ThemeToggle } from "@/components/ThemeToggle"
+import { Suspense, useState, useEffect, useCallback } from "react"
 import { useSearchParams } from "next/navigation"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Headphones, Video } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
+import { Separator } from "@/components/ui/separator"
+import {
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent,
+  DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuItem,
+  DropdownMenuGroup, DropdownMenuRadioGroup, DropdownMenuRadioItem,
+} from "@/components/ui/dropdown-menu"
+import {
+  AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogFooter,
+  AlertDialogTitle, AlertDialogDescription, AlertDialogAction, AlertDialogCancel,
+} from "@/components/ui/alert-dialog"
+import DownloadForm from "@/components/download-form"
+import DownloadHistory from "@/components/download-history"
+import { clearHistory } from "@/lib/history"
+import {
+  Disc3Icon, HeadphonesIcon, FilmIcon,
+  SettingsIcon, SunIcon, MoonIcon, MonitorIcon, Trash2Icon,
+} from "lucide-react"
 
-function YouTubeUrlHandler({ onUrlFound }: { onUrlFound: (url: string) => void }) {
-  const searchParams = useSearchParams();
-  
-  // Extract URL from search params
-  const encodedUrl = searchParams.get('url') || '';
-  if (encodedUrl) {
-    try {
-      onUrlFound(decodeURIComponent(encodedUrl));
-    } catch (e) {
-      console.error("Error decoding URL:", e);
-      onUrlFound(encodedUrl);
+type Mode = "audio" | "video"
+type Theme = "light" | "dark" | "system"
+
+function UrlHandler({ onUrl }: { onUrl: (u: string) => void }) {
+  const params = useSearchParams()
+  const raw = params.get("url") || ""
+  useEffect(() => {
+    if (raw) {
+      try { onUrl(decodeURIComponent(raw)) }
+      catch { onUrl(raw) }
     }
-  }
-  
-  return null;
+  }, [raw, onUrl])
+  return null
+}
+
+function getStoredTheme(): Theme {
+  if (typeof window === "undefined") return "system"
+  const s = localStorage.getItem("theme")
+  if (s === "light" || s === "dark") return s
+  return "system"
+}
+
+function applyTheme(t: Theme) {
+  const dark = t === "dark" || (t === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches)
+  document.documentElement.classList.toggle("dark", dark)
+  if (t === "system") localStorage.removeItem("theme")
+  else localStorage.setItem("theme", t)
 }
 
 export default function Home() {
-  // Using useState without initial search params processing
-  const [youtubeUrl, setYoutubeUrl] = useState('');
-  const [activeTab, setActiveTab] = useState("audio");
-  
+  const [url, setUrl] = useState("")
+  const [mode, setMode] = useState<Mode>("audio")
+  const [historyKey, setHistoryKey] = useState(0)
+  const [dragging, setDragging] = useState(false)
+  const [theme, setTheme] = useState<Theme>("system")
+  const [clearOpen, setClearOpen] = useState(false)
+
+  const refreshHistory = useCallback(() => setHistoryKey(k => k + 1), [])
+  const handleUrl = useCallback((u: string) => setUrl(u), [])
+
+  useEffect(() => { setTheme(getStoredTheme()) }, [])
+
+  useEffect(() => {
+    if (theme !== "system") return
+    const mq = window.matchMedia("(prefers-color-scheme: dark)")
+    const fn = () => applyTheme("system")
+    mq.addEventListener("change", fn)
+    return () => mq.removeEventListener("change", fn)
+  }, [theme])
+
+  const handleThemeChange = (val: string) => {
+    const t = val as Theme
+    setTheme(t)
+    applyTheme(t)
+  }
+
+  const handleClear = () => {
+    clearHistory()
+    refreshHistory()
+    setClearOpen(false)
+  }
+
+  // clipboard auto-detect
+  useEffect(() => {
+    const onFocus = async () => {
+      try {
+        const text = await navigator.clipboard.readText()
+        if (/youtube\.com|youtu\.be/.test(text) && text !== url) setUrl(text)
+      } catch {}
+    }
+    window.addEventListener("focus", onFocus)
+    return () => window.removeEventListener("focus", onFocus)
+  }, [url])
+
+  // drag indicator
+  useEffect(() => {
+    let timeout: NodeJS.Timeout
+    const enter = (e: DragEvent) => { e.preventDefault(); setDragging(true); clearTimeout(timeout) }
+    const over = (e: DragEvent) => { e.preventDefault(); clearTimeout(timeout) }
+    const leave = () => { timeout = setTimeout(() => setDragging(false), 100) }
+    const drop = () => setDragging(false)
+    document.addEventListener("dragenter", enter)
+    document.addEventListener("dragover", over)
+    document.addEventListener("dragleave", leave)
+    document.addEventListener("drop", drop)
+    return () => {
+      document.removeEventListener("dragenter", enter)
+      document.removeEventListener("dragover", over)
+      document.removeEventListener("dragleave", leave)
+      document.removeEventListener("drop", drop)
+    }
+  }, [])
+
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8">
-      {/* Wrap the component using useSearchParams in Suspense */}
+    <div className={`min-h-screen transition-all ${dragging ? "drop-active" : ""}`}>
       <Suspense fallback={null}>
-        <YouTubeUrlHandler onUrlFound={setYoutubeUrl} />
+        <UrlHandler onUrl={handleUrl} />
       </Suspense>
-      
-      <header className="border-b border-border pb-5 mb-8">
-        <div className="flex justify-between items-center">
-          <div className="flex items-center gap-2">
-            <div className="w-9 h-9 bg-primary rounded-md flex items-center justify-center">
-              <span className="text-primary-foreground font-medium text-lg">A</span>
+
+      <div className="accent-line" />
+
+      <div className="max-w-lg mx-auto px-4 pt-6 pb-12">
+        {/* header */}
+        <header className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-2.5">
+            <div className="size-8 bg-primary rounded-lg flex items-center justify-center shadow-sm">
+              <Disc3Icon className="size-4 text-primary-foreground spin-slow" />
             </div>
-            <h1 className="text-xl font-medium tracking-tight">AudioTube</h1>
+            <span className="text-lg font-semibold tracking-tight font-mono">
+              AudioTube
+            </span>
           </div>
-          <ThemeToggle />
-        </div>
-      </header>
-      
-      <main>
-        <div className="max-w-2xl mx-auto">
-          <Tabs defaultValue="audio" value={activeTab} onValueChange={setActiveTab}>
-            <div className="mb-8">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h2 className="text-2xl font-medium tracking-tight mb-2">
-                    {activeTab === "audio" ? "Download Audio" : "Download Video"}
-                  </h2>
-                  {activeTab === "audio" ? (
-                    <p className="text-muted-foreground">Extract high-quality audio from YouTube videos in your preferred format.</p>
-                  ) : (
-                    <p className="text-muted-foreground">Download YouTube videos in various formats and quality settings.</p>
-                  )}
-                </div>
-                <TabsList>
-                  <TabsTrigger value="audio" className="flex items-center gap-1">
-                    <Headphones className="h-4 w-4" />
-                    <span>Audio</span>
-                  </TabsTrigger>
-                  <TabsTrigger value="video" className="flex items-center gap-1">
-                    <Video className="h-4 w-4" />
-                    <span>Video</span>
-                  </TabsTrigger>
-                </TabsList>
-              </div>
-              
-              {!youtubeUrl && (
-                <p className="text-xs text-muted-foreground mt-2 italic">
-                  Pro tip: You can also use <span className="font-medium">audiotube.com/video-id</span> or <span className="font-medium">audiotube.com/full-youtube-url</span> to directly load a video.
-                </p>
-              )}
+
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={<Button variant="ghost" size="icon-sm" />}
+            >
+              <SettingsIcon className="size-4" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" sideOffset={8}>
+              <DropdownMenuGroup>
+                <DropdownMenuLabel>Appearance</DropdownMenuLabel>
+                <DropdownMenuRadioGroup value={theme} onValueChange={handleThemeChange}>
+                  <DropdownMenuRadioItem value="light">
+                    <SunIcon className="size-3.5" /> Light
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="dark">
+                    <MoonIcon className="size-3.5" /> Dark
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="system">
+                    <MonitorIcon className="size-3.5" /> System
+                  </DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem variant="destructive" onClick={() => setClearOpen(true)}>
+                <Trash2Icon className="size-3.5" /> Clear History
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </header>
+
+        {/* main card */}
+        <Card size="sm" className="mb-6">
+          <CardContent className="stagger space-y-0">
+            <div className="flex gap-1 p-1 bg-muted rounded-lg mb-5">
+              <Button
+                variant={mode === "audio" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setMode("audio")}
+                className="flex-1"
+              >
+                <HeadphonesIcon className="size-3.5" />
+                Audio
+              </Button>
+              <Button
+                variant={mode === "video" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setMode("video")}
+                className="flex-1"
+              >
+                <FilmIcon className="size-3.5" />
+                Video
+              </Button>
             </div>
-            
-            <div className="linear-card p-6">
-              <TabsContent value="audio">
-                <AudioDownloadForm initialUrl={youtubeUrl} />
-              </TabsContent>
-              <TabsContent value="video">
-                <VideoDownloadForm initialUrl={youtubeUrl} />
-              </TabsContent>
-            </div>
-          </Tabs>
-        </div>
-      </main>
+
+            <Separator className="mb-5" />
+
+            <DownloadForm mode={mode} initialUrl={url} onDone={refreshHistory} />
+          </CardContent>
+        </Card>
+
+        {/* history */}
+        <DownloadHistory refreshKey={historyKey} />
+
+        {/* tip */}
+        <p className="text-center text-[10px] text-muted-foreground/40 mt-10 select-none font-mono">
+          audiotube.com/VIDEO_ID → direct load
+        </p>
+      </div>
+
+      {/* clear history confirm */}
+      <AlertDialog open={clearOpen} onOpenChange={setClearOpen}>
+        <AlertDialogContent size="sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Clear history?</AlertDialogTitle>
+            <AlertDialogDescription>
+              All recent downloads will be removed. This can&apos;t be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={handleClear}>
+              Clear
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
-

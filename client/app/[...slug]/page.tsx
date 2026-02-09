@@ -1,33 +1,30 @@
-"use client";
+"use client"
 
-import { useEffect, use } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, use } from "react"
+import { useRouter } from "next/navigation"
 
 export default function CatchAllRoute({
   params,
 }: {
-  params: Promise<{ slug: string[] }>;
+  params: Promise<{ slug: string[] }>
 }) {
-  const resolvedParams = use(params);
-  const router = useRouter();
+  const { slug } = use(params)
+  const router = useRouter()
 
   useEffect(() => {
-    const rawUrl = resolvedParams.slug.join("/") + window.location.search;
-    console.log(rawUrl);
-
+    const raw = slug.join("/") + window.location.search
     const youtubeUrl =
-      rawUrl.includes("youtube.com") || rawUrl.includes("youtu.be")
-        ? rawUrl
-        : `https://www.youtube.com/watch?v=${rawUrl}`;
+      raw.includes("youtube.com") || raw.includes("youtu.be")
+        ? raw
+        : `https://www.youtube.com/watch?v=${raw}`
 
-    console.log(youtubeUrl);
-    router.replace(`/?url=${encodeURIComponent(youtubeUrl)}`);
-  }, [router, resolvedParams.slug]);
+    router.replace(`/?url=${encodeURIComponent(youtubeUrl)}`)
+  }, [router, slug])
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center">
-      <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4"></div>
-      <p className="text-muted-foreground">Redirecting...</p>
+    <div className="flex min-h-screen flex-col items-center justify-center gap-3">
+      <div className="size-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      <p className="text-sm text-muted-foreground">Redirecting...</p>
     </div>
-  );
+  )
 }

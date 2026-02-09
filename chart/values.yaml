@@ -1,0 +1,56 @@
+global:
+  name: audiotube
+  registry: registry.rsft.co
+
+backend:
+  enabled: true
+  image:
+    repository: audiotube-server
+    tag: latest
+    pullPolicy: Always
+  port: 8000
+  replicas: 1
+  healthCheck:
+    path: /health
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+  ingress:
+    enabled: true
+    host: at-api.geeth.app
+  env:
+    BASE_URL: https://at-api.geeth.app
+    URL_EXPIRY_HOURS: "24"
+
+frontend:
+  enabled: true
+  image:
+    repository: audiotube-client
+    tag: latest
+    pullPolicy: Always
+  port: 3000
+  replicas: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  ingress:
+    enabled: true
+    host: at.geeth.app
+    additionalHosts:
+      - audiotube.geeth.app
+  env:
+    NEXT_PUBLIC_API_URL: https://at-api.geeth.app
+
+postgres:
+  enabled: false
+
+redis:
+  enabled: false

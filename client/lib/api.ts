@@ -1,98 +1,69 @@
-/**
- * Client-side API utilities for direct API calls
- */
+const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 
-type DownloadParams = {
-  url: string;
-  format: string;
-};
+export type VideoInfo = {
+  title: string
+  thumbnail: string
+  duration: number
+  duration_formatted: string
+  channel: string
+  view_count: number | null
+  upload_date: string | null
+  formats: {
+    format_id: string
+    ext: string
+    resolution: string
+    height: number
+    fps: number | null
+    filesize: string | null
+    has_audio: boolean
+  }[]
+  audio_sizes: Record<string, string>
+  subtitles: string[]
+  auto_subtitles: string[]
+}
 
-type DownloadResponse = {
-  download_id: string;
-  format: string;
-  title: string;
-  duration?: number;
-  status: string;
-  download_url: string;
-  expires_at: string;
-};
+export type DownloadResponse = {
+  download_id: string
+  format: string
+  title: string
+  duration?: number
+  status: string
+  download_url: string
+  expires_at: string
+}
 
-/**
- * Downloads audio from a YouTube URL
- */
-export async function downloadAudio({ url, format }: DownloadParams): Promise<DownloadResponse> {
-  const apiUrl = "https://audiotube-api.geethg.com/download";
+export type SubtitleResponse = {
+  download_id: string
+  title: string
+  language: string
+  download_url: string
+  expires_at: string
+}
 
-  const response = await fetch(apiUrl, {
+export type ThumbnailResponse = {
+  title: string
+  thumbnail_url: string
+  thumbnails: { url: string; width: number; height: number }[]
+}
+
+async function request<T>(path: string, body?: unknown): Promise<T> {
+  const res = await fetch(`${API}${path}`, body ? {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ url, format }),
-  });
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  } : {})
 
-  if (!response.ok) {
-    throw new Error(`API request failed: ${response.statusText}`);
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(`${res.status}: ${text}`)
   }
-
-  return await response.json();
+  return res.json()
 }
 
-/**
- * Downloads video from a YouTube URL
- */
-export async function downloadVideo({ url, format }: DownloadParams): Promise<DownloadResponse> {
-  const apiUrl = "https://audiotube-api.geethg.com/download-video";
-  
-  const requestBody = { url, format };
-  console.log("Sending video download request:", requestBody);
-
-  try {
-    const response = await fetch(apiUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(requestBody),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("API error response:", response.status, errorText);
-      throw new Error(`API request failed: ${response.status} ${response.statusText} - ${errorText}`);
-    }
-
-    return await response.json();
-  } catch (error) {
-    console.error("Video download error:", error);
-    throw error;
-  }
-}
-
-/**
- * Fetches available audio formats
- */
-export async function getFormats(): Promise<string[]> {
-  const response = await fetch("https://audiotube-api.geethg.com/formats");
-  
-  if (!response.ok) {
-    throw new Error(`Failed to fetch formats: ${response.statusText}`);
-  }
-  
-  const data = await response.json();
-  return data.formats;
-}
-
-/**
- * Fetches available video formats
- */
-export async function getVideoFormats(): Promise<string[]> {
-  const response = await fetch("https://audiotube-api.geethg.com/video-formats");
-  
-  if (!response.ok) {
-    throw new Error(`Failed to fetch video formats: ${response.statusText}`);
-  }
-  
-  const data = await response.json();
-  return data.formats;
-} 
+export const getFormats = () => request<{ formats: string[] }>("/formats").then(d => d.formats)
+export const getVideoFormats = () => request<{ formats: string[] }>("/video-formats").then(d => d.formats)
+export const getVideoInfo = (url: string) => request<VideoInfo>("/info", { url })
+export const downloadAudio = (url: string, format: string) => request<DownloadResponse>("/download", { url, format })
+export const downloadVideo = (url: string, format: string) => request<DownloadResponse>("/download-video", { url, format })
+export const downloadSubtitle = (url: string, lang = "en") => request<SubtitleResponse>("/download-subtitle", { url, lang })
+export const downloadThumbnail = (url: string) => request<ThumbnailResponse>("/download-thumbnail", { url })
