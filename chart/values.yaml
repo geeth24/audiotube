@@ -6,7 +6,7 @@ backend:
   enabled: true
   image:
     repository: audiotube-server
-    tag: latest
+    tag: 63863fb
     pullPolicy: Always
   port: 8000
   replicas: 1
@@ -30,7 +30,7 @@ frontend:
   enabled: true
   image:
     repository: audiotube-client
-    tag: latest
+    tag: 63863fb
     pullPolicy: Always
   port: 3000
   replicas: 1
